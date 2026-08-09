@@ -24,7 +24,7 @@ and route its readiness probe to `/ready`.
 
 ## Vercel deployment
 
-Vercel uses `api/index.py` for the FastAPI adapter. Its Python Function calls
+Vercel uses `app.py` for the FastAPI adapter. Its Python Function calls
 the private Node Function at `/api/nse-bridge`, which owns the NSE-MCP stdio
 child process. This keeps the HTTP deployment compatible with Vercel while
 preserving `python -m server.app` for direct stdio MCP clients.
