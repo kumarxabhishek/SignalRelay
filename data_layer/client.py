@@ -127,11 +127,13 @@ class NseDataClient:
         clean = normalize_nse_symbol(symbol)
         try:
             raw = await self._call("get_quote", {"symbol": clean})
-            previous = as_float(raw.get("previousClose"))
-            price = as_float(raw.get("price"))
+            # NSE-MCP adapters do not all use the same quote field names.  Keep
+            # the normalized API stable while accepting the documented variants.
+            previous = as_float(_first_present(raw, "previousClose", "previous_close"))
+            price = as_float(_first_present(raw, "price", "lastPrice", "last_price", "currentPrice"))
             change = price - previous if price is not None and previous is not None else None
             pct = (change / previous * 100) if change is not None and previous else None
-            return QuoteResult(clean, price, change, pct, as_int(raw.get("volume")), "nse-mcp")
+            return QuoteResult(clean, price, change, pct, as_int(_first_present(raw, "volume", "totalTradedVolume")), "nse-mcp")
         except Exception as exc:
             logger.warning("quote fetch failed for %s: %s", clean, exc)
             return QuoteResult(clean, None, None, None, None, "nse-mcp", error=str(exc))
@@ -211,6 +213,15 @@ def _source_date(row: dict[str, Any]) -> date | None:
             return parse_nse_date(str(value))
         except ValueError:
             continue
+    return None
+
+
+def _first_present(row: dict[str, Any], *fields: str) -> Any:
+    """Return the first non-empty provider value from equivalent field names."""
+    for field in fields:
+        value = row.get(field)
+        if value is not None and value != "":
+            return value
     return None
 
 

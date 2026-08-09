@@ -37,6 +37,16 @@ async def test_normal_success_normalizes_types() -> None:
     assert flows.flows[0].dii_net_value == -2.0
 
 
+async def test_quote_accepts_adapter_field_name_variants() -> None:
+    class VariantQuoteTransport:
+        async def call_tool(self, name: str, arguments: dict[str, object]) -> object:
+            assert name == "get_quote"
+            return response({"lastPrice": "101.5", "previous_close": "100", "totalTradedVolume": "2500"})
+
+    quote = await NseDataClient(VariantQuoteTransport()).get_quote("RELIANCE")
+    assert (quote.price, quote.change, quote.pct_change, quote.volume) == (101.5, 1.5, 1.5, 2500)
+
+
 async def test_failure_becomes_typed_result() -> None:
     result = await NseDataClient(FakeTransport()).get_quote("FAIL")
     assert result.error == "simulated NSE-MCP timeout"

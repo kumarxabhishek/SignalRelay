@@ -46,6 +46,26 @@ async def _validated_quote(symbol: str):
     raise MarketDataUnavailableError("The live quote source is currently unavailable. Try again shortly.")
 
 
+def _quote_source_status(quote: object) -> dict[str, object]:
+    """Distinguish a usable quote source from one that supplied every core field."""
+    price = getattr(quote, "price", None)
+    change = getattr(quote, "change", None)
+    volume = getattr(quote, "volume", None)
+    error = getattr(quote, "error", None)
+    missing_fields = tuple(
+        label for label, value in (("last_price", price), ("change", change), ("volume", volume))
+        if value is None
+    )
+    status = "unavailable" if error else "partial" if missing_fields else "available"
+    return {
+        # `available` remains for older clients. New clients should use `status`.
+        "available": status == "available",
+        "status": status,
+        "missing_fields": missing_fields,
+        "error": error,
+    }
+
+
 async def _phase_two_data(symbol: str, *, force_refresh: bool = False) -> dict[str, object]:
     if force_refresh:
         await client.clear_cache()
@@ -70,7 +90,7 @@ async def _phase_two_data(symbol: str, *, force_refresh: bool = False) -> dict[s
         ] if delivery.error else [],
         "raw_evidence": {"quote": quote, "bulk_deals": deals, "insider_trades": insiders, "fii_dii_flows": flows, "nifty_50": index, "market_events": events},
         "source_status": {
-            "quote": {"available": quote.error is None, "error": quote.error},
+            "quote": _quote_source_status(quote),
             "bulk_deals": {"available": deals.error is None, "error": deals.error},
             "insider_trades": {"available": insiders.error is None, "error": insiders.error},
             "fii_dii_flows": {"available": flows.error is None, "error": flows.error},
