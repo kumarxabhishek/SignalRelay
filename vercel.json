@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "bash scripts/setup_nse_mcp.sh",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60,
+      "includeFiles": "{server/**,data_layer/**,signals/**,explanation/**,scripts/nse_mcp_stdio_wrapper.mjs,.vendor/NSE-MCP/dist/**}"
+    },
+    "api/nse-bridge.mjs": {
+      "maxDuration": 30,
+      "includeFiles": "{scripts/nse_mcp_stdio_wrapper.mjs,.vendor/NSE-MCP/dist/**}"
+    }
+  },
+  "rewrites": [
+    { "source": "/health", "destination": "/api/index" },
+    { "source": "/ready", "destination": "/api/index" },
+    { "source": "/v1/(.*)", "destination": "/api/index" }
+  ]
+}
