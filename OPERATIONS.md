@@ -34,7 +34,7 @@ values per environment):
 
 | Variable | Purpose |
 | --- | --- |
-| `SIGNALRELAY_ALLOWED_ORIGINS` | Exact Lovable dashboard origin. |
+| `SIGNALRELAY_ALLOWED_ORIGINS` | Exact production frontend origin. |
 | `SIGNALRELAY_API_TOKEN` | API secret, passed only by a server-side proxy. |
 | `SIGNALRELAY_NSE_BRIDGE_URL` | `https://<deployment-domain>/api/nse-bridge`. |
 | `SIGNALRELAY_NSE_BRIDGE_TOKEN` | Private token used only between functions. |
