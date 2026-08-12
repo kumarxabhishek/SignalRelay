@@ -66,7 +66,13 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return send(res, 405, { detail: "Method not allowed" });
   const expected = process.env.SIGNALRELAY_NSE_BRIDGE_TOKEN;
   if (!expected || req.headers["x-signalrelay-bridge-token"] !== expected) return send(res, 401, { detail: "Unauthorized" });
-  const { name, arguments: arguments_ } = typeof req.body === "string" ? JSON.parse(req.body) : req.body ?? {};
+  let payload;
+  try {
+    payload = typeof req.body === "string" ? JSON.parse(req.body) : req.body ?? {};
+  } catch {
+    return send(res, 400, { detail: "Invalid JSON request" });
+  }
+  const { name, arguments: arguments_ } = payload;
   if (typeof name !== "string" || !arguments_ || typeof arguments_ !== "object") return send(res, 422, { detail: "Tool name and arguments are required" });
   try {
     return send(res, 200, { result: await callTool(name, arguments_) });

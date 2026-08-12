@@ -30,6 +30,27 @@ def test_explained_report_selection_and_api_key(monkeypatch) -> None:
     assert response.json()["phase"] == 3
 
 
+def test_additional_api_token_is_accepted_without_rotating_primary(monkeypatch) -> None:
+    async def fake_signal_report(symbol: str) -> str:
+        return json.dumps({"phase": 2, "signals": []})
+
+    monkeypatch.setenv("SIGNALRELAY_API_TOKEN", "existing-token")
+    monkeypatch.setenv("SIGNALRELAY_ADDITIONAL_API_TOKENS", "migration-token, future-token")
+    monkeypatch.setattr(api_module, "build_signal_report", fake_signal_report)
+    client = TestClient(api_module.app)
+    assert client.post("/v1/reports", json={"symbol": "TCS"}, headers={"X-API-Key": "migration-token"}).status_code == 200
+    assert client.post("/v1/reports", json={"symbol": "TCS"}, headers={"X-API-Key": "wrong"}).status_code == 401
+
+
+def test_invalid_rate_limit_configuration_falls_back_safely(monkeypatch) -> None:
+    monkeypatch.setenv("SIGNALRELAY_RATE_LIMIT", "not-a-number")
+    monkeypatch.setenv("SIGNALRELAY_RATE_WINDOW_SECONDS", "0")
+    api_module.rate_limiter._requests.clear()
+    allowed, retry_after = api_module.rate_limiter.allowed("test-client")
+    assert allowed is True
+    assert retry_after == 0
+
+
 def test_report_input_is_validated() -> None:
     response = TestClient(api_module.app).post("/v1/reports", json={"symbol": "BAD SYMBOL"})
     assert response.status_code == 422

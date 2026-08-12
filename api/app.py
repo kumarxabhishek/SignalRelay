@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
 import sys
 import time
 from collections import defaultdict, deque
@@ -50,14 +51,17 @@ class InMemoryRateLimiter:
         self._requests: dict[str, deque[float]] = defaultdict(deque)
 
     def allowed(self, client: str) -> tuple[bool, int]:
-        limit = int(os.environ.get("SIGNALRELAY_RATE_LIMIT", "60"))
-        window = int(os.environ.get("SIGNALRELAY_RATE_WINDOW_SECONDS", "60"))
+        limit = _positive_int_env("SIGNALRELAY_RATE_LIMIT", 60, allow_zero=True)
+        window = _positive_int_env("SIGNALRELAY_RATE_WINDOW_SECONDS", 60)
         if limit <= 0:
             return True, 0
         now = time.monotonic()
         entries = self._requests[client]
         while entries and entries[0] <= now - window:
             entries.popleft()
+        if not entries:
+            self._requests.pop(client, None)
+            entries = self._requests[client]
         if len(entries) >= limit:
             return False, max(1, int(window - (now - entries[0])))
         entries.append(now)
@@ -65,6 +69,19 @@ class InMemoryRateLimiter:
 
 
 rate_limiter = InMemoryRateLimiter()
+
+
+def _positive_int_env(name: str, default: int, *, allow_zero: bool = False) -> int:
+    try:
+        value = int(os.environ.get(name, str(default)))
+    except ValueError:
+        logger.warning("Ignoring invalid %s value", name)
+        return default
+    minimum = 0 if allow_zero else 1
+    if value < minimum:
+        logger.warning("Ignoring out-of-range %s value", name)
+        return default
+    return value
 
 
 @app.middleware("http")
@@ -89,8 +106,15 @@ async def limit_requests(request: Request, call_next):
 
 def _check_api_key(x_api_key: str | None) -> None:
     """Local development is keyless; deployment may require an Edge Function key."""
-    expected = os.environ.get("SIGNALRELAY_API_TOKEN")
-    if expected and x_api_key != expected:
+    configured = [
+        token.strip()
+        for token in (
+            os.environ.get("SIGNALRELAY_API_TOKEN", "") + "," +
+            os.environ.get("SIGNALRELAY_ADDITIONAL_API_TOKENS", "")
+        ).split(",")
+        if token.strip()
+    ]
+    if configured and not any(x_api_key is not None and secrets.compare_digest(x_api_key, token) for token in configured):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
