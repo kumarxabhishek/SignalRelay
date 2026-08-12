@@ -13,6 +13,8 @@ test("build contains the SignalRelay research dashboard", async () => {
   assert.match(page, /Evidence-checked signal analysis/);
   assert.match(page, /No records observed/);
   assert.match(page, /View complete machine-readable payload/);
+  assert.match(page, /NSE stock suggestions/);
+  assert.match(page, /aria-autocomplete="list"/);
   assert.match(css, /font-family: Inter/);
   assert.doesNotMatch(`${page}\n${layout}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });

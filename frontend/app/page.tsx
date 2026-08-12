@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { findStockMatches, parseNseEquityCsv, type StockEntry } from "@/lib/stocks";
 
 type SourceStatus = { available?: boolean; status?: string; error?: string | null; as_of?: string | null };
 type Quote = { symbol?: string; price?: number | null; change?: number | null; pct_change?: number | null; volume?: number | null; source?: string };
@@ -58,6 +59,9 @@ function EvidenceRecords({ records, emptyMessage }: { records?: Record<string, u
 
 export default function Home() {
   const [symbol, setSymbol] = useState("");
+  const [stockDirectory, setStockDirectory] = useState<StockEntry[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const [includeExplanation, setIncludeExplanation] = useState(false);
   const [serviceStatus, setServiceStatus] = useState<"checking" | "ready" | "unavailable">("checking");
   const [explanationsConfigured, setExplanationsConfigured] = useState<boolean | null>(null);
@@ -75,6 +79,14 @@ export default function Home() {
       const health = await response.json().catch(() => ({}));
       if (active) { setServiceStatus(response.ok ? "ready" : "unavailable"); setExplanationsConfigured(Boolean(health.claude_explanations_configured)); }
     }).catch(() => { if (active) { setServiceStatus("unavailable"); setExplanationsConfigured(false); } });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/data/nse-equities.csv").then((response) => response.ok ? response.text() : Promise.reject(new Error("Stock directory unavailable")))
+      .then((csv) => { if (active) setStockDirectory(parseNseEquityCsv(csv)); })
+      .catch(() => { if (active) setStockDirectory([]); });
     return () => { active = false; };
   }, []);
 
@@ -96,6 +108,15 @@ export default function Home() {
   }, [includeExplanation]);
 
   function submit(event: FormEvent) { event.preventDefault(); void runAnalysis(symbol); }
+  const stockSuggestions = useMemo(() => findStockMatches(stockDirectory, symbol), [stockDirectory, symbol]);
+  function selectStock(stock: StockEntry) { setSymbol(stock.symbol); setSuggestionsOpen(false); setActiveSuggestion(-1); setError(null); }
+  function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") { setSuggestionsOpen(false); setActiveSuggestion(-1); return; }
+    if (!stockSuggestions.length) return;
+    if (event.key === "ArrowDown") { event.preventDefault(); setSuggestionsOpen(true); setActiveSuggestion((current) => current < stockSuggestions.length - 1 ? current + 1 : 0); }
+    if (event.key === "ArrowUp") { event.preventDefault(); setSuggestionsOpen(true); setActiveSuggestion((current) => current > 0 ? current - 1 : stockSuggestions.length - 1); }
+    if (event.key === "Enter" && suggestionsOpen && activeSuggestion >= 0) { event.preventDefault(); selectStock(stockSuggestions[activeSuggestion]); }
+  }
   const quote = report?.raw_evidence?.quote;
   const latestFlow = report?.raw_evidence?.fii_dii_flows?.flows?.[0];
   const index = report?.raw_evidence?.nifty_50?.index;
@@ -108,7 +129,7 @@ export default function Home() {
     <header className="topbar"><div className="wrap topbar-inner"><h1>SignalRelay <span>— Evidence-backed NSE market research</span></h1><div className="header-badges"><span className={`status-pill status-${serviceStatus}`} role="status" aria-live="polite"><span className="status-dot" />{serviceStatus === "checking" ? "Checking service…" : serviceStatus === "ready" ? (report ? "Live data" : "Ready") : "Service unavailable"}</span><span className="research-pill">Research only — not investment advice</span></div></div></header>
     <main className="wrap main-content">
       <section className="search-section"><div className="search-copy"><h2>Inspect a stock&apos;s evidence trail</h2><p>SignalRelay surfaces descriptive, source-traceable patterns from NSE-MCP feeds. Every claim is tied to a source; uncertainty is shown, not hidden.</p></div>
-        <form className="search-form" onSubmit={submit}><label className="sr-only" htmlFor="symbol-input">NSE symbol</label><input id="symbol-input" value={symbol} onChange={(event) => setSymbol(event.target.value.toUpperCase())} placeholder="Enter NSE symbol, e.g. RELIANCE" autoComplete="off" spellCheck={false} aria-invalid={Boolean(error)} /><button type="submit" disabled={loading}>{loading ? "Analyzing…" : "Analyze"}</button></form>
+        <form className="search-form" onSubmit={submit}><div className="search-control" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) { setSuggestionsOpen(false); setActiveSuggestion(-1); } }}><label className="sr-only" htmlFor="symbol-input">NSE symbol or company</label><input id="symbol-input" value={symbol} onChange={(event) => { setSymbol(event.target.value.toUpperCase()); setSuggestionsOpen(true); setActiveSuggestion(-1); }} onFocus={() => setSuggestionsOpen(true)} onKeyDown={handleSearchKeyDown} placeholder="Search symbol or company, e.g. RELIANCE" autoComplete="off" spellCheck={false} aria-invalid={Boolean(error)} role="combobox" aria-autocomplete="list" aria-expanded={suggestionsOpen && Boolean(symbol.trim())} aria-controls="stock-suggestions" aria-activedescendant={activeSuggestion >= 0 ? `stock-option-${activeSuggestion}` : undefined} />{suggestionsOpen && symbol.trim() && <div id="stock-suggestions" className="stock-suggestions" role="listbox" aria-label="NSE stock suggestions">{stockSuggestions.length ? stockSuggestions.map((stock, indexValue) => <button id={`stock-option-${indexValue}`} role="option" aria-selected={activeSuggestion === indexValue} className={activeSuggestion === indexValue ? "active" : ""} key={stock.symbol} type="button" onMouseEnter={() => setActiveSuggestion(indexValue)} onClick={() => selectStock(stock)}><strong>{stock.symbol}</strong><span>{stock.name}</span></button>) : stockDirectory.length ? <p>No matching NSE stocks</p> : <p>Loading NSE stock directory…</p>}</div>}</div><button type="submit" disabled={loading}>{loading ? "Analyzing…" : "Analyze"}</button></form>
         <label className={`check-row ${explanationsConfigured === false ? "check-disabled" : ""}`}><input id="include-explanation" aria-label="Include verified explanation" type="checkbox" checked={includeExplanation} disabled={explanationsConfigured !== true} onChange={(event) => setIncludeExplanation(event.target.checked)} /><span><strong>Include verified explanation</strong><small>{explanationsConfigured === null ? "Checking explanation service…" : explanationsConfigured ? "Generated only for detected signals, then checked against source evidence." : "Unavailable — the explanation provider is not configured on the server."}</small></span></label>
         <div className="quick-symbols" aria-label="Quick symbols">{QUICK_SYMBOLS.map((item) => <button key={item} type="button" disabled={loading} onClick={() => void runAnalysis(item)}>{item}</button>)}</div>
       </section>

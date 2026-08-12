@@ -49,11 +49,19 @@ a { color: inherit; }
 .search-copy > p { max-width: 610px; margin: 8px auto 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
 .eyebrow { margin: 0 0 6px; color: var(--muted); font-size: 10px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; }
 .search-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 22px; }
-.search-form input { min-width: 0; height: 48px; padding: 0 14px; border: 1px solid #363a43; border-radius: 7px; outline: none; color: var(--foreground); background: transparent; text-transform: uppercase; }
+.search-control { position: relative; min-width: 0; }
+.search-form input { width: 100%; min-width: 0; height: 48px; padding: 0 14px; border: 1px solid #363a43; border-radius: 7px; outline: none; color: var(--foreground); background: transparent; text-transform: uppercase; }
 .search-form input::placeholder { color: var(--faint); text-transform: none; }
 .search-form input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(85,136,238,.16); }
 .search-form button { height: 48px; padding: 0 24px; border: 0; border-radius: 7px; color: #fff; background: var(--primary); font-weight: 650; }
 .search-form button:hover { background: #6595f0; }
+.stock-suggestions { position: absolute; z-index: 20; top: calc(100% + 7px); left: 0; right: 0; overflow: hidden; border: 1px solid #343842; border-radius: 8px; background: #111318; box-shadow: 0 16px 40px rgba(0,0,0,.45); }
+.stock-suggestions button { display: grid; grid-template-columns: minmax(86px, auto) 1fr; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 9px 12px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; color: var(--foreground); background: transparent; text-align: left; }
+.stock-suggestions button:last-of-type { border-bottom: 0; }
+.stock-suggestions button:hover, .stock-suggestions button.active { background: #202329; }
+.stock-suggestions strong { color: #dce5f8; font-size: 12px; font-weight: 650; }
+.stock-suggestions span { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.stock-suggestions p { margin: 0; padding: 15px 12px; color: var(--muted); font-size: 11px; }
 button:disabled { cursor: not-allowed; opacity: .55; }
 .check-row { display: flex; gap: 9px; align-items: flex-start; width: fit-content; margin-top: 12px; color: var(--muted); font-size: 13px; cursor: pointer; }
 .check-row input { appearance: none; width: 16px; height: 16px; flex: 0 0 auto; margin: 1px 0 0; border: 1px solid var(--primary); border-radius: 3px; background: transparent; }
@@ -160,6 +168,7 @@ footer a:hover { text-decoration: underline; }
   .wrap { width: min(100% - 22px, 1120px); }
   .topbar h1 span { display: block; margin-top: 4px; }
   .search-form { grid-template-columns: 1fr; }
+  .stock-suggestions button { grid-template-columns: 78px 1fr; }
   .summary-grid, .source-grid, .metrics-grid, .evidence-grid, .audit-summary { grid-template-columns: 1fr; }
   .panel { padding: 16px; }
   .panel-title { flex-direction: column; gap: 7px; }
