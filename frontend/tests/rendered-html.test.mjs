@@ -10,6 +10,9 @@ test("build contains the SignalRelay research dashboard", async () => {
   assert.match(layout, /SignalRelay — Evidence-backed NSE market research/i);
   assert.match(page, /Inspect a stock/);
   assert.match(page, /Research only — not investment advice/);
+  assert.match(page, /Evidence-checked signal analysis/);
+  assert.match(page, /No records observed/);
+  assert.match(page, /View complete machine-readable payload/);
   assert.match(css, /font-family: Inter/);
   assert.doesNotMatch(`${page}\n${layout}`, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
